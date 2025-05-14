@@ -50,10 +50,20 @@ export const chores = pgTable("chores", {
   createdBy: integer("created_by"),
 });
 
-export const insertChoreSchema = createInsertSchema(chores).omit({
+// Create the base schema first
+const baseChoreSchema = createInsertSchema(chores).omit({
   id: true,
   isCompleted: true, 
   completedAt: true,
+});
+
+// Then extend it to handle date conversion properly
+export const insertChoreSchema = baseChoreSchema.extend({
+  dueDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str)),
+    z.object({}).transform(() => new Date())
+  ])
 });
 
 // Reward Schema

@@ -68,12 +68,17 @@ export default function ChoreForm({ onClose }: ChoreFormProps) {
       // Combine date and time
       const combinedDate = new Date(`${data.dueDate}T${data.dueTime}`);
       
+      // Make sure the date is valid
+      if (isNaN(combinedDate.getTime())) {
+        throw new Error("Invalid date format");
+      }
+      
       const choreData = {
         name: data.name,
         description: data.description,
         points: data.points,
         icon: data.icon,
-        dueDate: combinedDate.toISOString(),
+        dueDate: combinedDate, // Send as Date object, not string
         assignedToId: data.assignedToId,
         familyId: user?.familyId || 0,
         createdBy: user?.id,
@@ -91,10 +96,13 @@ export default function ChoreForm({ onClose }: ChoreFormProps) {
       onClose();
     },
     onError: (error) => {
+      console.error("Chore creation error:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to create chore. Please try again.",
+        title: "Error Creating Chore",
+        description: error instanceof Error 
+          ? error.message 
+          : "Failed to create chore. Please check all fields and try again.",
       });
     },
   });
