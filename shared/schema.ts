@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, unique } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -14,6 +15,8 @@ export const users = pgTable("users", {
   level: integer("level").notNull().default(1),
   avatarColor: text("avatar_color").notNull(),
 });
+
+// Relations will be defined after all tables are declared
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -136,3 +139,72 @@ export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
 
 export type UserAchievement = typeof userAchievements.$inferSelect;
 export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
+
+// Define all relations
+export const usersRelations = relations(users, ({ one, many }) => ({
+  family: one(families, {
+    fields: [users.familyId],
+    references: [families.id],
+  }),
+  assignedChores: many(chores, { relationName: "assignedToUser" }),
+  createdChores: many(chores, { relationName: "createdByUser" }),
+  redemptions: many(redemptions),
+  userAchievements: many(userAchievements),
+}));
+
+export const familiesRelations = relations(families, ({ many }) => ({
+  users: many(users),
+  chores: many(chores),
+  rewards: many(rewards),
+}));
+
+export const choresRelations = relations(chores, ({ one }) => ({
+  assignedTo: one(users, {
+    fields: [chores.assignedToId],
+    references: [users.id],
+    relationName: "assignedToUser",
+  }),
+  createdBy: one(users, {
+    fields: [chores.createdBy],
+    references: [users.id],
+    relationName: "createdByUser",
+  }),
+  family: one(families, {
+    fields: [chores.familyId],
+    references: [families.id],
+  }),
+}));
+
+export const rewardsRelations = relations(rewards, ({ one, many }) => ({
+  family: one(families, {
+    fields: [rewards.familyId],
+    references: [families.id],
+  }),
+  redemptions: many(redemptions),
+}));
+
+export const redemptionsRelations = relations(redemptions, ({ one }) => ({
+  user: one(users, {
+    fields: [redemptions.userId],
+    references: [users.id],
+  }),
+  reward: one(rewards, {
+    fields: [redemptions.rewardId],
+    references: [rewards.id],
+  }),
+}));
+
+export const userAchievementsRelations = relations(userAchievements, ({ one }) => ({
+  user: one(users, {
+    fields: [userAchievements.userId],
+    references: [users.id],
+  }),
+  achievement: one(achievements, {
+    fields: [userAchievements.achievementId],
+    references: [achievements.id],
+  }),
+}));
+
+export const achievementsRelations = relations(achievements, ({ many }) => ({
+  userAchievements: many(userAchievements),
+}));

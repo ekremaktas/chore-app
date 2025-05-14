@@ -3,7 +3,6 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import session from "express-session";
-import MemoryStore from "memorystore";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import {
@@ -16,8 +15,6 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 
-const SessionStore = MemoryStore(session);
-
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up session middleware
   app.use(
@@ -25,9 +22,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secret: "chorequest-secret",
       resave: false,
       saveUninitialized: false,
-      store: new SessionStore({
-        checkPeriod: 86400000, // prune expired entries every 24h
-      }),
+      store: storage.sessionStore,
       cookie: {
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       },
