@@ -372,6 +372,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoints to troubleshoot auth issues
+  app.get("/debug/session", (req, res) => {
+    res.json({
+      authenticated: req.isAuthenticated(),
+      session: req.session,
+      user: req.user || null
+    });
+  });
+  
   // Attach the API router
   app.use("/api", apiRouter);
 

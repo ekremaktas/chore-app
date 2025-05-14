@@ -34,33 +34,51 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  const { LoginModal, login } = useAuth();
+
+  // Show login modal component
   if (!mounted) return null;
   if (!user) {
     return (
-      <div className="h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <div className="flex items-center justify-center mb-6">
-            <i className="ri-gamepad-line text-primary text-4xl mr-2"></i>
-            <h1 className="font-heading text-primary text-3xl">ChoreQuest</h1>
-          </div>
-          <h2 className="text-xl font-bold mb-4">Welcome to ChoreQuest!</h2>
-          <p className="text-gray-600 mb-6">
-            Please log in to start your chore adventure.
-          </p>
-          <div className="space-y-4">
-            <div className="bg-gray-100 p-4 rounded-lg">
-              <p className="font-semibold mb-1">Demo Parent Account</p>
-              <p>Username: parent</p>
-              <p>Password: parent123</p>
+      <>
+        <LoginModal />
+        <div className="h-screen flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+            <div className="flex items-center justify-center mb-6">
+              <i className="ri-gamepad-line text-primary text-4xl mr-2"></i>
+              <h1 className="font-heading text-primary text-3xl">ChoreQuest</h1>
             </div>
-            <div className="bg-gray-100 p-4 rounded-lg">
-              <p className="font-semibold mb-1">Demo Child Account</p>
-              <p>Username: jake</p>
-              <p>Password: jake123</p>
+            <h2 className="text-xl font-bold mb-4">Welcome to ChoreQuest!</h2>
+            <p className="text-gray-600 mb-6">
+              Please log in to start your chore adventure.
+            </p>
+            <div className="space-y-4">
+              <div className="bg-gray-100 p-4 rounded-lg">
+                <p className="font-semibold mb-1">Demo Parent Account</p>
+                <p>Username: parent</p>
+                <p>Password: parent123</p>
+                <Button 
+                  onClick={() => login('parent', 'parent123')} 
+                  className="mt-2 w-full"
+                >
+                  Login as Parent
+                </Button>
+              </div>
+              <div className="bg-gray-100 p-4 rounded-lg">
+                <p className="font-semibold mb-1">Demo Child Account</p>
+                <p>Username: jake</p>
+                <p>Password: jake123</p>
+                <Button 
+                  onClick={() => login('jake', 'jake123')} 
+                  className="mt-2 w-full"
+                >
+                  Login as Child
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
