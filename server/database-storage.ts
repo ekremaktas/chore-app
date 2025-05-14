@@ -131,7 +131,40 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     
+    // If this is a parent (first user in family), create some initial chores and rewards
+    if (user.roleType === "parent") {
+      try {
+        // Create some initial chores
+        await this.createInitialFamilyItems(user.familyId, result[0].id);
+      } catch (error) {
+        console.error("Error creating initial family items:", error);
+      }
+    }
+    
     return result[0];
+  }
+  
+  private async createInitialFamilyItems(familyId: number, parentId: number) {
+    // Create some sample chores
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Create an initial reward
+    await this.createReward({
+      name: "Movie Night",
+      description: "Pick any movie for family night",
+      pointsCost: 100,
+      icon: "ri-movie-line",
+      familyId: familyId
+    });
+    
+    await this.createReward({
+      name: "Extra Game Time",
+      description: "30 minutes of extra video game time",
+      pointsCost: 150,
+      icon: "ri-gamepad-line",
+      familyId: familyId
+    });
   }
 
   async updateUserPoints(userId: number, points: number): Promise<User | undefined> {
