@@ -55,13 +55,44 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       
-      // Use auth context to login
-      await login(data.username, data.password);
+      // First, try using apiRequest directly
+      const res = await apiRequest(
+        "POST",
+        "/api/auth/login",
+        {
+          username: data.username,
+          password: data.password,
+        }
+      );
       
-      // Redirect to dashboard
-      window.location.href = "/";
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Login failed");
+      }
+      
+      const userData = await res.json();
+      
+      toast({
+        title: "Welcome back!",
+        description: `You have successfully logged in as ${userData.username}.`,
+      });
+      
+      // Add a small delay to ensure session is properly set
+      toast({
+        title: "Redirecting...",
+        description: "You will be redirected to the dashboard in a moment.",
+      });
+      
+      // Force reload to update auth state after a small delay
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1000);
     } catch (error) {
-      // Error is already handled by the auth context
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "Incorrect username or password",
+      });
       console.error("Login failed:", error);
     } finally {
       setIsLoading(false);

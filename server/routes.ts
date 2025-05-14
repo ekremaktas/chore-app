@@ -109,7 +109,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       req.logIn(user, (err: Error | null) => {
         if (err) return next(err);
-        return res.json(user);
+        
+        // Set a cookie to help with auth
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return next(err);
+          }
+          
+          console.log("User authenticated and session saved:", user.id);
+          return res.json(user);
+        });
       });
     })(req, res, next);
   });
@@ -378,6 +388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       authenticated: req.isAuthenticated(),
       session: req.session,
+      sessionID: req.sessionID,
+      cookies: req.headers.cookie,
       user: req.user || null
     });
   });
