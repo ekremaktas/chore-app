@@ -90,7 +90,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const isAuthenticated = (req: Request, res: Response, next: Function) => {
     if (req.isAuthenticated()) {
       // Store the family ID in session for quick access and security checks
-      req.session.familyId = (req.user as any).familyId;
+      // Using custom property, first extend session type
+      (req.session as any).familyId = (req.user as any).familyId;
       return next();
     }
     res.status(401).json({ message: "Authentication required" });
@@ -464,8 +465,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/users/:userId/achievements", isParent, async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
-      const data = insertUserAchievementSchema.parse({ ...req.body, userId });
+      const currentUserFamilyId = (req.user as any).familyId;
+      const targetUserId = parseInt(req.params.userId);
+      
+      if (!currentUserFamilyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
+      // Verify the target user is from the same family as the current user
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser || targetUser.familyId !== currentUserFamilyId) {
+        return res.status(403).json({ 
+          message: "You can only award achievements to users from your own family" 
+        });
+      }
+      
+      const data = insertUserAchievementSchema.parse({ ...req.body, userId: targetUserId });
       const userAchievement = await storage.awardAchievement(data);
       res.status(201).json(userAchievement);
     } catch (err) {
@@ -473,15 +488,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // External API access
+  // External API access - secured with API key validation
   apiRouter.get("/external/chores", async (req, res) => {
     try {
-      const apiKey = req.headers.authorization?.replace('Bearer ', '');
+      // Extract API key - support both header format options
+      const apiKey = req.headers.authorization?.replace('Bearer ', '') || 
+                    req.headers['x-api-key'] as string;
       
       if (!apiKey) {
-        return res.status(401).json({ message: "API key required" });
+        return res.status(401).json({ 
+          message: "API key required",
+          details: "Provide API key in Authorization header as 'Bearer YOUR_API_KEY' or in X-API-Key header"
+        });
       }
       
+      // Verify API key and get associated family
       const family = await storage.getFamilyByApiKey(apiKey);
       if (!family) {
         return res.status(401).json({ message: "Invalid API key" });
@@ -489,13 +510,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const childId = req.query.child_id ? parseInt(req.query.child_id as string) : undefined;
       
-      let chores;
+      // If child ID is provided, verify the child belongs to this family
       if (childId) {
-        chores = await storage.getChoresByUserId(childId);
-      } else {
-        chores = await storage.getChoresByFamilyId(family.id);
-      }
+        const child = await storage.getUser(childId);
+        if (!child || child.familyId !== family.id) {
+          return res.status(403).json({ 
+            message: "Access denied: Child ID does not belong to this family"
+          });
+        }
+        
+        const chores = await storage.getChoresByUserId(childId);
+        return res.json(chores);
+      } 
       
+      // Return all family chores if no child ID specified
+      const chores = await storage.getChoresByFamilyId(family.id);
       res.json(chores);
     } catch (err) {
       handleError(err, res);
@@ -504,12 +533,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/external/chores/:id/complete", async (req, res) => {
     try {
-      const apiKey = req.headers.authorization?.replace('Bearer ', '');
+      // Extract API key - support both header format options
+      const apiKey = req.headers.authorization?.replace('Bearer ', '') || 
+                    req.headers['x-api-key'] as string;
       
       if (!apiKey) {
-        return res.status(401).json({ message: "API key required" });
+        return res.status(401).json({ 
+          message: "API key required",
+          details: "Provide API key in Authorization header as 'Bearer YOUR_API_KEY' or in X-API-Key header"
+        });
       }
       
+      // Verify API key and get associated family
       const family = await storage.getFamilyByApiKey(apiKey);
       if (!family) {
         return res.status(401).json({ message: "Invalid API key" });
@@ -519,14 +554,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = parseInt(req.body.child_id);
       
       if (!userId) {
-        return res.status(400).json({ message: "child_id is required" });
+        return res.status(400).json({ message: "child_id is required in request body" });
       }
       
+      // Verify the chore exists and belongs to the family
+      const chore = await storage.getChore(choreId);
+      if (!chore) {
+        return res.status(404).json({ message: "Chore not found" });
+      }
+      
+      if (chore.familyId !== family.id) {
+        return res.status(403).json({ message: "Access denied: Chore does not belong to this family" });
+      }
+      
+      // Verify the user exists and belongs to the family
       const user = await storage.getUser(userId);
       if (!user || user.familyId !== family.id) {
         return res.status(403).json({ message: "Child not found in family" });
       }
       
+      // Complete the chore
       const updatedChore = await storage.completeChore(choreId, userId);
       if (!updatedChore) {
         return res.status(404).json({ message: "Chore not found or already completed" });
