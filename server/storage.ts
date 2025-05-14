@@ -82,8 +82,84 @@ export class MemStorage implements IStorage {
     this.achievementIdCounter = 1;
     this.userAchievementIdCounter = 1;
     
-    // Initialize with some default achievements
+    // Initialize with sample data
     this.initializeAchievements();
+    this.initializeSampleData();
+  }
+  
+  // Initialize sample data for demo purposes
+  private async initializeSampleData() {
+    try {
+      // Create a sample family
+      const family = await this.createFamily({
+        name: "Smith Family",
+        apiKey: "demo_api_key_123456"
+      });
+      
+      // Create a parent user
+      await this.createUser({
+        username: "parent",
+        password: "parent123",
+        displayName: "Parent Smith",
+        roleType: "parent",
+        familyId: family.id,
+        avatarColor: "purple"
+      });
+      
+      // Create a child user
+      const jake = await this.createUser({
+        username: "jake",
+        password: "jake123",
+        displayName: "Jake Smith",
+        roleType: "child",
+        familyId: family.id,
+        avatarColor: "blue"
+      });
+      
+      // Create some sample chores
+      await this.createChore({
+        name: "Take out the trash",
+        description: "Every evening before dinner",
+        points: 30,
+        icon: "ri-delete-bin-line",
+        dueDate: new Date(Date.now() + 86400000), // Tomorrow
+        assignedToId: jake.id,
+        familyId: family.id,
+        createdBy: 1 // Parent
+      });
+      
+      await this.createChore({
+        name: "Clean bedroom",
+        description: "Make your bed and tidy up",
+        points: 50,
+        icon: "ri-home-line",
+        dueDate: new Date(Date.now() + 86400000), // Tomorrow
+        assignedToId: jake.id,
+        familyId: family.id,
+        createdBy: 1 // Parent
+      });
+      
+      // Create some sample rewards
+      await this.createReward({
+        name: "Movie Night",
+        description: "Pick any movie for family night",
+        pointsCost: 100,
+        icon: "ri-movie-line",
+        familyId: family.id
+      });
+      
+      await this.createReward({
+        name: "Extra Game Time",
+        description: "30 minutes of extra video game time",
+        pointsCost: 150,
+        icon: "ri-gamepad-line",
+        familyId: family.id
+      });
+      
+      console.log("Sample data initialized successfully");
+    } catch (error) {
+      console.error("Error initializing sample data:", error);
+    }
   }
   
   private initializeAchievements() {
