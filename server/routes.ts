@@ -312,10 +312,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reward routes
+  // Reward routes - secure to user's family
   apiRouter.get("/rewards", isAuthenticated, async (req, res) => {
     try {
       const familyId = (req.user as any).familyId;
+      
+      if (!familyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
       const rewards = await storage.getRewardsByFamilyId(familyId);
       res.json(rewards);
     } catch (err) {
@@ -325,7 +330,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/rewards", isParent, async (req, res) => {
     try {
-      const data = insertRewardSchema.parse(req.body);
+      const userFamilyId = (req.user as any).familyId;
+      
+      if (!userFamilyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
+      // Force familyId to be the user's family
+      const data = insertRewardSchema.parse({
+        ...req.body,
+        familyId: userFamilyId
+      });
+      
       const reward = await storage.createReward(data);
       res.status(201).json(reward);
     } catch (err) {
@@ -333,10 +349,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Redemption routes
+  // Redemption routes - secure by family
   apiRouter.post("/redemptions", isAuthenticated, async (req, res) => {
     try {
-      const data = insertRedemptionSchema.parse(req.body);
+      const userId = (req.user as any).id;
+      const userFamilyId = (req.user as any).familyId;
+      
+      if (!userFamilyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
+      // Verify the reward belongs to the user's family
+      const rewardId = req.body.rewardId;
+      if (rewardId) {
+        const reward = await storage.getReward(rewardId);
+        if (!reward || reward.familyId !== userFamilyId) {
+          return res.status(403).json({ 
+            message: "You can only redeem rewards from your own family" 
+          });
+        }
+      }
+      
+      // Force userId to be the current user
+      const data = insertRedemptionSchema.parse({
+        ...req.body,
+        userId: userId
+      });
+      
       const redemption = await storage.createRedemption(data);
       res.status(201).json(redemption);
     } catch (err) {
@@ -357,10 +396,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.post("/redemptions/:id/approve", isParent, async (req, res) => {
     try {
       const redemptionId = parseInt(req.params.id);
-      const updatedRedemption = await storage.approveRedemption(redemptionId);
+      const userFamilyId = (req.user as any).familyId;
       
-      if (!updatedRedemption) {
+      if (!userFamilyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
+      // First get the redemption
+      const redemption = await storage.getRedemptionById(redemptionId);
+      if (!redemption) {
         return res.status(404).json({ message: "Redemption not found" });
+      }
+      
+      // Get the user who made the redemption
+      const redeemingUser = await storage.getUser(redemption.userId);
+      if (!redeemingUser || redeemingUser.familyId !== userFamilyId) {
+        return res.status(403).json({ 
+          message: "You can only approve redemptions from your own family members" 
+        });
+      }
+      
+      const updatedRedemption = await storage.approveRedemption(redemptionId);
+      if (!updatedRedemption) {
+        return res.status(404).json({ message: "Redemption not found or already approved" });
       }
       
       res.json(updatedRedemption);
@@ -381,8 +439,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/users/:userId/achievements", isAuthenticated, async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
-      const achievements = await storage.getUserAchievements(userId);
+      const currentUserId = (req.user as any).id;
+      const currentUserFamilyId = (req.user as any).familyId;
+      const targetUserId = parseInt(req.params.userId);
+      
+      if (!currentUserFamilyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
+      // Verify the target user is from the same family as the current user
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser || targetUser.familyId !== currentUserFamilyId) {
+        return res.status(403).json({ 
+          message: "You can only view achievements of users from your own family" 
+        });
+      }
+      
+      const achievements = await storage.getUserAchievements(targetUserId);
       res.json(achievements);
     } catch (err) {
       handleError(err, res);

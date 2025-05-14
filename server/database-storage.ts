@@ -383,6 +383,13 @@ export class DatabaseStorage implements IStorage {
       .from(redemptions)
       .where(eq(redemptions.userId, userId));
   }
+  
+  async getRedemptionById(id: number): Promise<Redemption | undefined> {
+    const result = await db.select()
+      .from(redemptions)
+      .where(eq(redemptions.id, id));
+    return result[0];
+  }
 
   async approveRedemption(id: number): Promise<Redemption | undefined> {
     const result = await db.update(redemptions)

@@ -45,6 +45,7 @@ export interface IStorage {
   
   // Redemption operations
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
+  getRedemptionById(id: number): Promise<Redemption | undefined>;
   getRedemptionsByUserId(userId: number): Promise<Redemption[]>;
   approveRedemption(id: number): Promise<Redemption | undefined>;
   
