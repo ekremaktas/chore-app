@@ -14,10 +14,14 @@ export default function Family() {
   const { user } = useAuth();
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   
-  const { data: familyMembers, isLoading } = useQuery({
-    queryKey: ['/api/families', user?.familyId, 'members'],
+  // Get all users which effectively gets family members
+  const { data: users, isLoading } = useQuery({
+    queryKey: ['/api/users'],
     enabled: !!user?.familyId,
   });
+  
+  // Filter users to only show family members
+  const familyMembers = users?.filter(member => member.familyId === user?.familyId);
   
   const isParent = user?.roleType === "parent";
   

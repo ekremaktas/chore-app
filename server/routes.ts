@@ -183,6 +183,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       handleError(err, res);
     }
   });
+  
+  // Get all users
+  apiRouter.get("/users", isAuthenticated, async (req, res) => {
+    try {
+      // Only get users from the same family as the current user
+      const familyId = (req.user as any).familyId;
+      const users = await storage.getFamilyMembers(familyId);
+      res.status(200).json(users);
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
 
   // Chore routes
   apiRouter.get("/chores", isAuthenticated, async (req, res) => {
