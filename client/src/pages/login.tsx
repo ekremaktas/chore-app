@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuthContext } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -37,6 +38,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuthContext();
 
   // Default form values
   const defaultValues: Partial<LoginFormValues> = {
@@ -53,36 +55,14 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       
-      // Log in the user
-      const res = await apiRequest(
-        "POST",
-        "/api/auth/login",
-        {
-          username: data.username,
-          password: data.password,
-        }
-      );
+      // Use auth context to login
+      await login(data.username, data.password);
       
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Login failed");
-      }
-      
-      const user = await res.json();
-      
-      toast({
-        title: "Welcome back!",
-        description: `You have successfully logged in as ${user.username}.`,
-      });
-      
-      // Redirect to dashboard and force a refresh to update auth state
+      // Redirect to dashboard
       window.location.href = "/";
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Login failed",
-        description: error instanceof Error ? error.message : "Incorrect username or password",
-      });
+      // Error is already handled by the auth context
+      console.error("Login failed:", error);
     } finally {
       setIsLoading(false);
     }

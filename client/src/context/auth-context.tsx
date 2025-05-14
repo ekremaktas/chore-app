@@ -56,7 +56,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       toast({
         title: "Logged in successfully",
-        description: `Welcome back, ${userData.displayName}!`,
+        description: `Welcome back, ${userData.username}!`,
       });
       
       return userData;
