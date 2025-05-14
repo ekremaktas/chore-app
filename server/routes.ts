@@ -86,9 +86,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.status(500).json({ message: "Internal server error" });
   };
 
-  // Authentication middlewares
+  // Authentication and security middlewares
   const isAuthenticated = (req: Request, res: Response, next: Function) => {
     if (req.isAuthenticated()) {
+      // Store the family ID in session for quick access and security checks
+      req.session.familyId = (req.user as any).familyId;
       return next();
     }
     res.status(401).json({ message: "Authentication required" });
@@ -99,6 +101,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return next();
     }
     res.status(403).json({ message: "Parent access required" });
+  };
+  
+  // Middleware to verify family access - prevents cross-family data access
+  const verifyFamilyAccess = (req: Request, res: Response, next: Function) => {
+    const userFamilyId = (req.user as any).familyId;
+    const targetFamilyId = parseInt(req.params.familyId) || parseInt(req.params.id);
+    
+    if (!targetFamilyId || userFamilyId === targetFamilyId) {
+      return next();
+    }
+    
+    return res.status(403).json({ 
+      message: "Access denied: You can only access data from your own family" 
+    });
   };
 
   // Authentication routes
@@ -148,11 +164,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  apiRouter.get("/families/:id", isAuthenticated, async (req, res) => {
+  apiRouter.get("/families/:id", isAuthenticated, verifyFamilyAccess, async (req, res) => {
     try {
       const familyId = parseInt(req.params.id);
-      const family = await storage.getFamily(familyId);
+      // Only allow access to user's own family
+      if (familyId !== (req.user as any).familyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       
+      const family = await storage.getFamily(familyId);
       if (!family) {
         return res.status(404).json({ message: "Family not found" });
       }
@@ -163,9 +183,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  apiRouter.get("/families/:id/members", isAuthenticated, async (req, res) => {
+  apiRouter.get("/families/:id/members", isAuthenticated, verifyFamilyAccess, async (req, res) => {
     try {
       const familyId = parseInt(req.params.id);
+      // Only allow access to user's own family
+      if (familyId !== (req.user as any).familyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       const members = await storage.getFamilyMembers(familyId);
       res.json(members);
     } catch (err) {
@@ -184,11 +209,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get all users
+  // Get users from user's own family only
   apiRouter.get("/users", isAuthenticated, async (req, res) => {
     try {
       // Only get users from the same family as the current user
       const familyId = (req.user as any).familyId;
+      if (!familyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
       const users = await storage.getFamilyMembers(familyId);
       res.status(200).json(users);
     } catch (err) {
@@ -196,12 +225,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Chore routes
+  // Chore routes - secure to user's family
   apiRouter.get("/chores", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).id;
       const familyId = (req.user as any).familyId;
       const roleType = (req.user as any).roleType;
+      
+      if (!familyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
       
       let chores;
       if (roleType === "parent") {
@@ -218,7 +251,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/chores", isParent, async (req, res) => {
     try {
-      const data = insertChoreSchema.parse(req.body);
+      // Ensure the chore is being created for the user's family
+      const userFamilyId = (req.user as any).familyId;
+      if (!userFamilyId) {
+        return res.status(400).json({ message: "No family associated with user" });
+      }
+      
+      // Force familyId to be the user's family
+      const data = insertChoreSchema.parse({
+        ...req.body,
+        familyId: userFamilyId
+      });
+      
+      // Verify assignedToId is from the same family
+      if (data.assignedToId) {
+        const assignedUser = await storage.getUser(data.assignedToId);
+        if (!assignedUser || assignedUser.familyId !== userFamilyId) {
+          return res.status(403).json({ 
+            message: "You can only assign chores to members of your own family" 
+          });
+        }
+      }
+      
       const chore = await storage.createChore(data);
       res.status(201).json(chore);
     } catch (err) {
@@ -230,6 +284,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const choreId = parseInt(req.params.id);
       const userId = (req.user as any).id;
+      const userFamilyId = (req.user as any).familyId;
+      
+      // Verify the chore belongs to the user's family
+      const chore = await storage.getChore(choreId);
+      if (!chore) {
+        return res.status(404).json({ message: "Chore not found" });
+      }
+      
+      if (chore.familyId !== userFamilyId) {
+        return res.status(403).json({ message: "You can only complete chores from your own family" });
+      }
+      
+      // For children, verify they can only complete their own chores
+      if ((req.user as any).roleType === "child" && chore.assignedToId && chore.assignedToId !== userId) {
+        return res.status(403).json({ message: "You can only complete chores assigned to you" });
+      }
       
       const updatedChore = await storage.completeChore(choreId, userId);
       if (!updatedChore) {
