@@ -55,13 +55,17 @@ export default function ChoreForm({ onClose }: ChoreFormProps) {
     },
   });
 
-  // Fetch family members
+  // Fetch family members using the users endpoint
   const { data: familyMembers } = useQuery({
-    queryKey: ['/api/families', user?.familyId, 'members'],
+    queryKey: ['/api/users'],
     enabled: !!user?.familyId,
   });
 
-  const childMembers = familyMembers?.filter(member => member.roleType === "child") || [];
+  // Filter for child members from the same family
+  const childMembers = Array.isArray(familyMembers) ? 
+    familyMembers.filter((member: any) => 
+      member.roleType === "child" && member.familyId === user?.familyId
+    ) : [];
 
   const createChore = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
@@ -144,7 +148,11 @@ export default function ChoreForm({ onClose }: ChoreFormProps) {
                   <Textarea 
                     placeholder="Add details about the chore" 
                     className="resize-none" 
-                    {...field} 
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
                   />
                 </FormControl>
                 <FormMessage />
@@ -220,9 +228,9 @@ export default function ChoreForm({ onClose }: ChoreFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {childMembers.map((child) => (
+                    {childMembers.map((child: any) => (
                       <SelectItem key={child.id} value={child.id.toString()}>
-                        {child.displayName}
+                        {child.displayName || child.username}
                       </SelectItem>
                     ))}
                   </SelectContent>
