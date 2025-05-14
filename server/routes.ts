@@ -41,9 +41,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!user) {
           return done(null, false, { message: "Incorrect username" });
         }
-        if (user.password !== password) {
+        
+        const isValidPassword = await storage.comparePasswords(password, user.password);
+        if (!isValidPassword) {
           return done(null, false, { message: "Incorrect password" });
         }
+        
         return done(null, user);
       } catch (err) {
         return done(err);

@@ -14,6 +14,10 @@ import { DatabaseStorage } from "./database-storage";
 export interface IStorage {
   // Session store
   sessionStore: any; // Express session store
+  
+  // Password utilities
+  hashPassword(password: string): Promise<string>;
+  comparePasswords(supplied: string, stored: string): Promise<boolean>;
 
   // User operations
   getUser(id: number): Promise<User | undefined>;

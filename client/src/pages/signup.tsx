@@ -109,23 +109,14 @@ export default function SignupPage() {
         userData
       );
       
-      // 3. Log in the user
-      const loginRes = await apiRequest(
-        "POST",
-        "/api/auth/login",
-        {
-          username: data.user.username,
-          password: data.user.password,
-        }
-      );
-      
+      // 3. Redirect to login page with success message instead of auto-login
       toast({
         title: "Account created!",
-        description: "You have successfully created your family account.",
+        description: "You can now log in with your new credentials.",
       });
       
-      // Redirect to dashboard
-      setLocation("/");
+      // Redirect to login page
+      setLocation("/login");
     } catch (error) {
       toast({
         variant: "destructive",
