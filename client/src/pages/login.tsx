@@ -72,11 +72,11 @@ export default function LoginPage() {
       
       toast({
         title: "Welcome back!",
-        description: `You have successfully logged in as ${user.displayName}.`,
+        description: `You have successfully logged in as ${user.username}.`,
       });
       
-      // Redirect to dashboard
-      setLocation("/");
+      // Redirect to dashboard and force a refresh to update auth state
+      window.location.href = "/";
     } catch (error) {
       toast({
         variant: "destructive",
